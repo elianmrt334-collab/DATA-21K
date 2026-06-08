@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal 21K | Gestión de Contenido</title>
+    <title>Portal de Reportes | Coosajo 21K</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 
         // --- CONFIGURACIÓN FIREBASE ---
         const firebaseConfig = {
@@ -26,60 +25,103 @@
             appId: "1:299496606379:web:a4d6609ff79eebff0c85ee",
             measurementId: "G-D7GGDWSWKY"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = 'esquipulas-21k-v1';
+        const appId = 'coosajo-21k-v1';
 
-        const COLORS = { yellow: '#FFC107', celeste: '#00AEEF', navy: '#0a192f' };
+        const COLORS = { blue: '#0A192F', yellow: '#FFC107', celeste: '#00AEEF' };
 
-        // --- ESTADO GLOBAL ---
+        // --- DATOS PRE-CARGADOS CON SUS ANÁLISIS ---
+        const INITIAL_REPORTS = [
+            {
+                id: "p1", reportTitle: "Día Mundial Running", campaignName: "Día Mundial Running", reach: 18281, results: 9, interactions: 449, investment: 0, ctr: 0, status: 'FINALIZADA',
+                executiveSummary: "Publicación orgánica con alto alcance orgánico (18,281 visualizaciones). Logró una excelente conexión con la comunidad mediante una dinámica de participación.",
+                conclusions: "La interacción de 449 personas demuestra que la temática deportiva es clave para el engagement de la página.",
+                createdAt: '2026-06-03T15:55:00Z'
+            },
+            {
+                id: "p2", reportTitle: "Regresiva 8 Nov", campaignName: "Regresiva 8 Noviembre", reach: 61715, results: 50, interactions: 988, investment: 0, ctr: 0, status: 'FINALIZADA',
+                executiveSummary: "El post de mayor alcance hasta la fecha. La campaña de regresiva genera una expectativa alta y sentido de pertenencia entre los corredores.",
+                conclusions: "Se debe mantener este tipo de contenido visual que refuerza la identidad de la carrera.",
+                createdAt: '2026-05-27T17:44:00Z'
+            },
+            {
+                id: "p3", reportTitle: "Stand Paseo Imperial", campaignName: "Activación Paseo Imperial", reach: 29082, results: 10, interactions: 318, investment: 0, ctr: 0, status: 'FINALIZADA',
+                executiveSummary: "Activación física en punto de venta. Los resultados muestran una presencia sólida en lugares concurridos.",
+                conclusions: "Es vital combinar lo digital con lo presencial para convertir visualizaciones en registros físicos.",
+                createdAt: '2026-05-29T10:17:00Z'
+            },
+            {
+                id: "p4", reportTitle: "Regresiva Stand", campaignName: "Recordatorio Inscripciones", reach: 17396, results: 4, interactions: 152, investment: 0, ctr: 0, status: 'FINALIZADA',
+                executiveSummary: "Post de recordatorio para la activación en Paseo Imperial. Mantiene la marca en el top-of-mind de los seguidores.",
+                conclusions: "El formato de foto grupal genera cercanía, lo cual es muy valorado por nuestra audiencia.",
+                createdAt: '2026-05-30T08:47:00Z'
+            },
+            {
+                id: "p5", reportTitle: "Experiencia única", campaignName: "Experiencia única 21K", reach: 33693, results: 40, interactions: 667, investment: 0, ctr: 0, status: 'FINALIZADA',
+                executiveSummary: "Post enfocado en la vivencia de la carrera. Alta tasa de conversión en nuevos seguidores.",
+                conclusions: "La carga emotiva de los posts es directamente proporcional a la cantidad de seguidores netos obtenidos.",
+                createdAt: '2026-05-26T17:24:00Z'
+            }
+        ];
+
         window.appState = {
-            reports: [],
-            currentView: 'list',
+            reports: [...INITIAL_REPORTS],
+            currentView: 'login',
+            selectedReport: null,
             editingReportId: null,
-            aiLoading: false,
-            aiChat: [],
-            lastAnalyzedImage: null
+            aiLoading: false, aiChat: [], lastAnalyzedImage: null
         };
 
         const render = () => {
             const root = document.getElementById('root');
-            if (!root) return;
-            const view = window.appState.currentView;
-            
-            if (view === 'list') root.innerHTML = ListView();
-            else if (view === 'create') root.innerHTML = CreateView();
-            else if (view === 'compare') root.innerHTML = CompareView();
+            if(!root) return;
+            const v = window.appState.currentView;
+            if(v === 'login') root.innerHTML = LoginView();
+            else if(v === 'list') root.innerHTML = ListView();
+            else if(v === 'create') root.innerHTML = CreateView();
+            else if(v === 'view') root.innerHTML = ReportView();
+            setupEventListeners();
         };
 
+        const LoginView = () => `
+            <div class="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+                <div class="max-w-md w-full bg-[#0A192F] rounded-[3rem] shadow-2xl p-10 text-center border-2 border-[#FFC107]">
+                    <h2 class="text-white text-2xl font-black mb-6 uppercase">Acceso 21K</h2>
+                    <form id="loginForm" class="space-y-4">
+                        <input type="text" id="username" class="w-full p-4 rounded-xl bg-white/10 text-white" placeholder="Usuario">
+                        <input type="password" id="password" class="w-full p-4 rounded-2xl bg-white/10 text-white" placeholder="Contraseña">
+                        <button type="submit" class="w-full py-4 bg-[#FFC107] font-black rounded-xl text-[#0A192F]">INGRESAR</button>
+                    </form>
+                    <div id="loginError" class="hidden text-red-400 mt-4 text-xs font-bold">Credenciales incorrectas</div>
+                </div>
+            </div>
+        `;
+
         const ListView = () => `
-            <div class="min-h-screen bg-slate-50 font-['Montserrat']">
-                <nav class="bg-[#0a192f] text-white p-6 shadow-xl">
+            <div class="min-h-screen bg-slate-50 font-['Poppins']">
+                <nav class="bg-[#0A192F] text-white p-6 shadow-xl">
                     <div class="max-w-7xl mx-auto flex justify-between items-center">
-                        <div class="flex items-center gap-4">
-                            <img src="logo 21k vii.png" alt="Logo 21K" class="h-12 w-12 rounded-full object-cover border-2 border-[#FFC107]">
-                            <h1 class="font-black text-2xl uppercase tracking-tighter">Esquipulas 21K</h1>
-                        </div>
+                        <h1 class="font-black text-2xl uppercase tracking-tighter text-[#FFC107]">Esquipulas 21K</h1>
                         <div class="flex gap-4">
-                            <button onclick="changeView('compare')" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:bg-white/20 transition-all"><i class="fa-solid fa-chart-pie mr-2"></i>Comparativa</button>
-                            <button onclick="changeView('create')" class="bg-[#FFC107] text-[#0a192f] px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg hover:scale-105 transition-all"><i class="fa-solid fa-plus mr-2"></i>Nuevo Post</button>
+                            <button onclick="changeView('create')" class="bg-[#00AEEF] px-4 py-2 rounded-xl text-xs font-bold uppercase hover:scale-105 transition-all">Nuevo Post</button>
+                            <a href="dashboard.html" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:bg-white/20 transition-all">Dashboard</a>
                         </div>
                     </div>
                 </nav>
                 <main class="max-w-7xl mx-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     ${window.appState.reports.map(r => `
-                        <div class="bg-white p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer border border-gray-100 group relative">
-                            <div class="flex justify-between mb-4">
-                                <div class="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-500 text-lg"><i class="fa-solid fa-medal"></i></div>
-                                <button onclick="deleteReport('${r.id}')" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        <div onclick="openReport('${r.id}')" class="bg-white p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group relative">
+                            <h4 class="font-black text-lg mb-2 text-[#0A192F] line-clamp-1">${r.reportTitle}</h4>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase mb-4">${new Date(r.createdAt).toLocaleDateString()}</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-blue-50 p-3 rounded-xl"><p class="text-[9px] uppercase text-blue-800">Alcance</p><p class="font-black text-lg text-blue-900">${r.reach.toLocaleString()}</p></div>
+                                <div class="bg-amber-50 p-3 rounded-xl"><p class="text-[9px] uppercase text-amber-800">Resultados</p><p class="font-black text-lg text-amber-900">${r.results.toLocaleString()}</p></div>
                             </div>
-                            <h4 class="font-black text-lg mb-1" style="color: ${COLORS.navy}">${r.title}</h4>
-                            <p class="text-[10px] text-gray-400 font-bold uppercase">${new Date(r.date).toLocaleDateString()}</p>
-                            <div class="grid grid-cols-2 gap-4 mt-6">
-                                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-[9px] uppercase text-gray-400">Alcance</p><p class="font-black text-sky-600">${r.reach.toLocaleString()}</p></div>
-                                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-[9px] uppercase text-gray-400">Interacciones</p><p class="font-black text-amber-500">${r.interactions.toLocaleString()}</p></div>
+                            <div class="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all flex gap-2">
+                                <button onclick="editReport(event, '${r.id}')" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="deleteReport(event, '${r.id}')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
                     `).join('')}
@@ -87,83 +129,88 @@
             </div>
         `;
 
-        const CompareView = () => {
-            const total = window.appState.reports.reduce((acc, r) => ({
-                reach: acc.reach + (r.reach || 0),
-                results: acc.results + (r.results || 0),
-                interactions: acc.interactions + (r.interactions || 0)
-            }), { reach: 0, results: 0, interactions: 0 });
-
-            return `
-                <div class="min-h-screen bg-slate-50 p-8 font-['Montserrat']">
-                    <button onclick="changeView('list')" class="mb-8 font-bold"><i class="fa-solid fa-arrow-left mr-2"></i> Volver</button>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div class="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-[#00AEEF]">
-                            <p class="text-xs uppercase text-gray-400 font-black">Alcance Total</p>
-                            <h3 class="text-4xl font-black">${total.reach.toLocaleString()}</h3>
-                        </div>
-                        <div class="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-[#FFC107]">
-                            <p class="text-xs uppercase text-gray-400 font-black">Interacciones Totales</p>
-                            <h3 class="text-4xl font-black">${total.interactions.toLocaleString()}</h3>
-                        </div>
-                        <div class="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-[#00853f]">
-                            <p class="text-xs uppercase text-gray-400 font-black">Postulantes/Nuevos Seguidores</p>
-                            <h3 class="text-4xl font-black">${total.results.toLocaleString()}</h3>
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-
         const CreateView = () => `
             <div class="min-h-screen bg-slate-50 p-8">
                 <div class="max-w-4xl mx-auto bg-white p-10 rounded-[3rem] shadow-2xl">
-                    <h2 class="text-2xl font-black mb-8">Ingreso de Datos</h2>
+                    <button onclick="changeView('list')" class="mb-6 font-bold"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+                    <h2 class="text-2xl font-black mb-8 text-[#0A192F]">${window.appState.editingReportId ? 'Editar Post' : 'Registrar Post'}</h2>
                     <form id="createForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <input type="text" id="rep_title" placeholder="Título del Post" class="p-4 rounded-2xl bg-gray-50 outline-none">
-                        <input type="date" id="rep_date" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="text" id="rep_camp" placeholder="Nombre Campaña" class="p-4 rounded-2xl bg-gray-50 outline-none">
                         <input type="number" id="rep_reach" placeholder="Alcance" class="p-4 rounded-2xl bg-gray-50 outline-none">
-                        <input type="number" id="rep_res" placeholder="Resultados/Seguidores" class="p-4 rounded-2xl bg-gray-50 outline-none">
-                        <input type="number" id="rep_react" placeholder="Reacciones" class="p-4 rounded-2xl bg-gray-50 outline-none">
-                        <input type="number" id="rep_comm" placeholder="Comentarios" class="p-4 rounded-2xl bg-gray-50 outline-none">
-                        <input type="number" id="rep_share" placeholder="Compartidos" class="p-4 rounded-2xl bg-gray-50 outline-none">
-                        <button type="submit" class="col-span-full py-5 bg-[#0a192f] text-white font-black rounded-2xl">GUARDAR</button>
+                        <input type="number" id="rep_res" placeholder="Seguidores Netos" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <textarea id="rep_summary" placeholder="Análisis / Resumen" class="col-span-full p-4 rounded-2xl bg-gray-50 outline-none"></textarea>
+                        <textarea id="rep_conclusions" placeholder="Conclusiones" class="col-span-full p-4 rounded-2xl bg-gray-50 outline-none"></textarea>
+                        <button type="submit" class="col-span-full py-5 bg-[#0A192F] text-white font-black rounded-2xl">GUARDAR</button>
                     </form>
                 </div>
             </div>
         `;
 
-        function setupEventListeners() {
-            document.getElementById('createForm')?.addEventListener('submit', async (e) => {
+        const ReportView = () => {
+            const r = window.appState.selectedReport;
+            return `
+                <div class="min-h-screen bg-slate-50 p-8">
+                    <button onclick="changeView('list')" class="mb-6 font-bold"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+                    <div class="max-w-4xl mx-auto bg-white p-12 rounded-[3rem] shadow-xl">
+                        <h2 class="text-4xl font-black text-[#0A192F] mb-6">${r.reportTitle}</h2>
+                        <div class="grid grid-cols-2 gap-6 mb-10">
+                            <div class="bg-blue-50 p-6 rounded-2xl"><p class="text-xs text-blue-800 uppercase">Alcance</p><p class="text-3xl font-black">${r.reach.toLocaleString()}</p></div>
+                            <div class="bg-amber-50 p-6 rounded-2xl"><p class="text-xs text-amber-800 uppercase">Seguidores</p><p class="text-3xl font-black">${r.results.toLocaleString()}</p></div>
+                        </div>
+                        <h3 class="font-bold text-lg text-[#0A192F] mb-2">Resumen Ejecutivo</h3>
+                        <p class="text-gray-600 mb-6 whitespace-pre-wrap">${r.executiveSummary}</p>
+                        <h3 class="font-bold text-lg text-[#0A192F] mb-2">Conclusiones</h3>
+                        <p class="text-gray-600 whitespace-pre-wrap">${r.conclusions}</p>
+                    </div>
+                </div>
+            `;
+        };
+
+        const setupEventListeners = () => {
+            document.getElementById('loginForm')?.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const data = {
-                    title: document.getElementById('rep_title').value,
-                    date: document.getElementById('rep_date').value,
-                    reach: Number(document.getElementById('rep_reach').value),
-                    results: Number(document.getElementById('rep_res').value),
-                    interactions: Number(document.getElementById('rep_react').value) + Number(document.getElementById('rep_comm').value) + Number(document.getElementById('rep_share').value),
+                const u = document.getElementById('username').value;
+                const p = document.getElementById('password').value;
+                if((u === 'sjemartinez' || u === 'sjjardon') && p === 'Coosajo2041') {
+                    window.appState.currentView = 'list'; render();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('createForm')?.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newReport = {
+                    id: window.appState.editingReportId || 'p-' + Date.now(),
+                    reportTitle: document.getElementById('rep_title').value,
+                    campaignName: document.getElementById('rep_camp').value,
+                    reach: parseInt(document.getElementById('rep_reach').value),
+                    results: parseInt(document.getElementById('rep_res').value),
+                    executiveSummary: document.getElementById('rep_summary').value,
+                    conclusions: document.getElementById('rep_conclusions').value,
                     createdAt: new Date().toISOString()
                 };
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'reports'), data);
+                
+                if (window.appState.editingReportId) {
+                    const idx = window.appState.reports.findIndex(r => r.id === window.appState.editingReportId);
+                    window.appState.reports[idx] = newReport;
+                } else {
+                    window.appState.reports.unshift(newReport);
+                }
+                
+                window.appState.editingReportId = null;
                 window.appState.currentView = 'list';
                 render();
             });
-        }
+        };
+
+        window.changeView = (v) => { window.appState.editingReportId = null; window.appState.currentView = v; render(); };
+        window.logout = () => { window.appState.currentView = 'login'; render(); };
+        window.openReport = (id) => { window.appState.selectedReport = window.appState.reports.find(r => r.id === id); window.appState.currentView = 'view'; render(); };
+        window.editReport = (e, id) => { e.stopPropagation(); window.appState.editingReportId = id; window.appState.currentView = 'create'; render(); };
+        window.deleteReport = (e, id) => { e.stopPropagation(); window.appState.reports = window.appState.reports.filter(r => r.id !== id); render(); };
         
-        window.changeView = (v) => { window.appState.currentView = v; render(); };
-        window.deleteReport = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'reports', id)); };
-        
-        // --- INICIALIZACIÓN ---
-        onAuthStateChanged(auth, async (u) => {
-            if (u) {
-                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'reports')), (snap) => {
-                    window.appState.reports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    render();
-                });
-            } else {
-                await signInAnonymously(auth);
-            }
-        });
         render();
     </script>
 </head>
