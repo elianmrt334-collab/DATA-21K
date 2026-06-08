@@ -3,85 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportes de Rendimiento | Esquipulas 21K</title>
+    <title>Portal 21K | Gestión de Contenido</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 
-        // --- CONFIGURACIÓN FIREBASE (Usa la tuya real al subir a GitHub) ---
-        let firebaseConfig = null;
-        try {
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                firebaseConfig = JSON.parse(__firebase_config);
-            }
-        } catch (e) { console.error("Config error"); }
-
-        let db, auth, appId;
-        const isFirebaseEnabled = firebaseConfig !== null && firebaseConfig.apiKey;
-        if (isFirebaseEnabled) {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            appId = 'esquipulas-21k-reports-v1';
-        }
-
-        // --- GEMINI API CONFIG ---
-        const apiKey = ""; 
-        const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-
-        // --- COLORES ESQUIPULAS 21K ---
-        const COLORS = { 
-            celeste: '#00AEEF', 
-            amarillo: '#FFC107',
-            darkBlue: '#003366',
-            gray: '#f3f4f6'
+        // --- CONFIGURACIÓN FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyACfn6C6_XqLDQI29f6uHUUwlCQkSCXNYk",
+            authDomain: "costos-comunicacion-digital.firebaseapp.com",
+            databaseURL: "https://costos-comunicacion-digital-default-rtdb.firebaseio.com",
+            projectId: "costos-comunicacion-digital",
+            storageBucket: "costos-comunicacion-digital.firebasestorage.app",
+            messagingSenderId: "299496606379",
+            appId: "1:299496606379:web:a4d6609ff79eebff0c85ee",
+            measurementId: "G-D7GGDWSWKY"
         };
 
-        // --- REPORTES INICIALES (Basados en tus capturas) ---
-        const INITIAL_REPORTS = [
-            {
-                id: "post-cuenta-regresiva",
-                reportTitle: 'Análisis: Cuenta Regresiva 8 de Nov',
-                campaignName: 'Publicación Orgánica: "La cuenta regresiva ha comenzado..."',
-                startDate: '2026-05-27',
-                reach: 33917,
-                views: 61715,
-                followers: 50,
-                reactions: 752,
-                comments: 121,
-                shares: 103,
-                executiveSummary: 'Esta publicación generó un impacto masivo, alcanzando a casi 34,000 personas únicas y logrando más de 61,000 visualizaciones totales.\n\nEl anuncio de la fecha (8 de noviembre) resonó fuertemente con la audiencia, lo que se refleja en el altísimo volumen de interacciones (casi 1,000 interacciones totales) y la adquisición de 50 nuevos seguidores netos.\n\nDestaca que el 69.4% de los espectadores fueron Mujeres, confirmando una participación femenina dominante en nuestra comunidad digital.',
-                conclusions: 'Se recomienda mantener la estrategia de generar expectativa (hype) utilizando imágenes vibrantes de los corredores. El alto número de "Compartidos" (103) indica que la comunidad está dispuesta a ser embajadora de la carrera de forma orgánica.',
-                createdAt: '2026-05-27T12:00:00.000Z'
-            },
-            {
-                id: "post-dia-running",
-                reportTitle: 'Análisis: Día Mundial del Running',
-                campaignName: 'Publicación Orgánica: "¿Sabías que el Día Mundial del Running..."',
-                startDate: '2026-06-03',
-                reach: 9650,
-                views: 18281,
-                followers: 9,
-                reactions: 388,
-                comments: 32,
-                shares: 29,
-                executiveSummary: 'La publicación conmemorativa del Día Mundial del Running tuvo un rendimiento sólido, logrando un alcance cercano a las 10,000 personas.\n\nGeneró 449 interacciones en total y aportó 9 seguidores nuevos a la página. Al igual que en tendencias anteriores, el público femenino representó la mayoría de las vistas (63.8%), concentrándose fuertemente en el segmento de 25 a 34 años.',
-                conclusions: 'El contenido educativo/conmemorativo funciona muy bien para mantener la interacción constante con la base de seguidores actual, aunque su capacidad de viralización es menor en comparación con los anuncios oficiales de la carrera.',
-                createdAt: '2026-06-03T12:00:00.000Z'
-            }
-        ];
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = 'esquipulas-21k-v1';
 
+        const COLORS = { yellow: '#FFC107', celeste: '#00AEEF', navy: '#0a192f' };
+
+        // --- ESTADO GLOBAL ---
         window.appState = {
-            user: null,
-            reports: [...INITIAL_REPORTS],
-            currentView: 'list', // Entra directo por ahora
-            selectedReport: null,
+            reports: [],
+            currentView: 'list',
             editingReportId: null,
             aiLoading: false,
             aiChat: [],
@@ -95,515 +51,121 @@
             
             if (view === 'list') root.innerHTML = ListView();
             else if (view === 'create') root.innerHTML = CreateView();
-            else if (view === 'view') root.innerHTML = ReportView();
             else if (view === 'compare') root.innerHTML = CompareView();
-            
-            setupEventListeners();
-
-            // Poblado de datos para edición
-            if (view === 'create' && window.appState.editingReportId) {
-                const r = window.appState.reports.find(rep => rep.id === window.appState.editingReportId);
-                if (r) {
-                    document.getElementById('rep_title').value = r.reportTitle || '';
-                    document.getElementById('rep_camp').value = r.campaignName || '';
-                    document.getElementById('rep_start').value = r.startDate || '';
-                    document.getElementById('rep_reach').value = r.reach || 0;
-                    document.getElementById('rep_views').value = r.views || 0;
-                    document.getElementById('rep_followers').value = r.followers || 0;
-                    document.getElementById('rep_reactions').value = r.reactions || 0;
-                    document.getElementById('rep_comments').value = r.comments || 0;
-                    document.getElementById('rep_shares').value = r.shares || 0;
-                    document.getElementById('rep_summary').value = r.executiveSummary || '';
-                    document.getElementById('rep_conclusions').value = r.conclusions || '';
-                }
-            }
         };
-
-        // --- COMPONENTES UI (DISEÑO 21K) ---
-        const Navbar = () => `
-            <nav class="sticky top-0 z-50 p-4 shadow-xl" style="background-color: ${COLORS.darkBlue}">
-                <div class="max-w-7xl mx-auto flex justify-between items-center">
-                    <div class="flex items-center gap-4 cursor-pointer" onclick="changeView('list')">
-                        <div class="bg-white p-1 rounded-xl h-12 flex items-center justify-center border-b-4" style="border-color: ${COLORS.celeste}">
-                            <img src="logo 21k vii.png" alt="21K Logo" class="h-full object-contain" onerror="this.src='https://placehold.co/100x40?text=21K+VII'">
-                        </div>
-                        <h1 class="font-black uppercase tracking-tighter text-white text-lg hidden md:block">Centro de Inteligencia</h1>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="changeView('compare')" class="bg-white/10 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20 transition-all flex items-center gap-2 hover:bg-white/20">
-                            <i class="fa-solid fa-scale-balanced text-[${COLORS.amarillo}]" style="color: ${COLORS.amarillo}"></i> Comparativa
-                        </button>
-                        <button onclick="changeView('create')" class="px-5 py-2 rounded-xl text-[10px] text-white font-black uppercase shadow-lg hover:scale-105 transition-transform" style="background-color: ${COLORS.celeste}">
-                            <i class="fa-solid fa-plus mr-1"></i> Analizar Post
-                        </button>
-                    </div>
-                </div>
-            </nav>
-        `;
 
         const ListView = () => `
-            <div class="min-h-screen font-sans" style="background-color: ${COLORS.gray}">
-                ${Navbar()}
-                <main class="max-w-7xl mx-auto p-6 md:p-10 space-y-8 animate-fade-in">
-                    <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-b-4 pb-6" style="border-color: ${COLORS.celeste}">
-                        <div>
-                            <h2 class="text-4xl font-black uppercase tracking-tight" style="color: ${COLORS.darkBlue}">Rendimiento de Contenido</h2>
-                            <p class="text-gray-500 font-semibold mt-1">Análisis de publicaciones en Facebook de la VIII Edición.</p>
+            <div class="min-h-screen bg-slate-50 font-['Montserrat']">
+                <nav class="bg-[#0a192f] text-white p-6 shadow-xl">
+                    <div class="max-w-7xl mx-auto flex justify-between items-center">
+                        <div class="flex items-center gap-4">
+                            <img src="logo 21k vii.png" alt="Logo 21K" class="h-12 w-12 rounded-full object-cover border-2 border-[#FFC107]">
+                            <h1 class="font-black text-2xl uppercase tracking-tighter">Esquipulas 21K</h1>
+                        </div>
+                        <div class="flex gap-4">
+                            <button onclick="changeView('compare')" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:bg-white/20 transition-all"><i class="fa-solid fa-chart-pie mr-2"></i>Comparativa</button>
+                            <button onclick="changeView('create')" class="bg-[#FFC107] text-[#0a192f] px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg hover:scale-105 transition-all"><i class="fa-solid fa-plus mr-2"></i>Nuevo Post</button>
                         </div>
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        ${window.appState.reports.map((r) => `
-                            <div onclick="openReport('${r.id}')" class="bg-white p-8 rounded-[2rem] shadow-lg hover:shadow-2xl transition-all cursor-pointer group relative border-b-[8px] overflow-hidden" style="border-color: ${COLORS.celeste}">
-                                <div class="absolute top-0 right-0 w-32 h-32 opacity-10 rounded-bl-full" style="background-color: ${COLORS.amarillo}"></div>
-                                
-                                <h4 class="font-black text-xl mb-1 line-clamp-2 leading-tight pr-8" style="color: ${COLORS.darkBlue}">${r.reportTitle}</h4>
-                                <p class="text-xs text-gray-400 font-bold uppercase mb-6">${new Date(r.startDate + "T12:00:00").toLocaleDateString('es-GT', {day:'numeric', month:'short', year:'numeric'})}</p>
-                                
-                                <div class="grid grid-cols-2 gap-4 mb-4">
-                                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                        <p class="text-[9px] uppercase font-black text-gray-400">Alcance</p>
-                                        <p class="text-lg font-black" style="color: ${COLORS.celeste}">${r.reach.toLocaleString()}</p>
-                                    </div>
-                                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                        <p class="text-[9px] uppercase font-black text-gray-400">Seguidores</p>
-                                        <p class="text-lg font-black" style="color: ${COLORS.amarillo}">+${r.followers}</p>
-                                    </div>
-                                </div>
-
-                                <div class="absolute top-6 right-6 flex gap-2">
-                                    <button onclick="editReport(event, '${r.id}')" class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-[${COLORS.celeste}] transition-all p-1"><i class="fa-solid fa-pen"></i></button>
-                                    <button onclick="deleteReport(event, '${r.id}')" class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all p-1"><i class="fa-solid fa-trash"></i></button>
-                                </div>
+                </nav>
+                <main class="max-w-7xl mx-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${window.appState.reports.map(r => `
+                        <div class="bg-white p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer border border-gray-100 group relative">
+                            <div class="flex justify-between mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-500 text-lg"><i class="fa-solid fa-medal"></i></div>
+                                <button onclick="deleteReport('${r.id}')" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
                             </div>
-                        `).join('')}
-                    </div>
+                            <h4 class="font-black text-lg mb-1" style="color: ${COLORS.navy}">${r.title}</h4>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">${new Date(r.date).toLocaleDateString()}</p>
+                            <div class="grid grid-cols-2 gap-4 mt-6">
+                                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-[9px] uppercase text-gray-400">Alcance</p><p class="font-black text-sky-600">${r.reach.toLocaleString()}</p></div>
+                                <div class="bg-gray-50 p-3 rounded-xl"><p class="text-[9px] uppercase text-gray-400">Interacciones</p><p class="font-black text-amber-500">${r.interactions.toLocaleString()}</p></div>
+                            </div>
+                        </div>
+                    `).join('')}
                 </main>
             </div>
         `;
+
+        const CompareView = () => {
+            const total = window.appState.reports.reduce((acc, r) => ({
+                reach: acc.reach + (r.reach || 0),
+                results: acc.results + (r.results || 0),
+                interactions: acc.interactions + (r.interactions || 0)
+            }), { reach: 0, results: 0, interactions: 0 });
+
+            return `
+                <div class="min-h-screen bg-slate-50 p-8 font-['Montserrat']">
+                    <button onclick="changeView('list')" class="mb-8 font-bold"><i class="fa-solid fa-arrow-left mr-2"></i> Volver</button>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-[#00AEEF]">
+                            <p class="text-xs uppercase text-gray-400 font-black">Alcance Total</p>
+                            <h3 class="text-4xl font-black">${total.reach.toLocaleString()}</h3>
+                        </div>
+                        <div class="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-[#FFC107]">
+                            <p class="text-xs uppercase text-gray-400 font-black">Interacciones Totales</p>
+                            <h3 class="text-4xl font-black">${total.interactions.toLocaleString()}</h3>
+                        </div>
+                        <div class="bg-white p-8 rounded-3xl shadow-lg border-b-8 border-[#00853f]">
+                            <p class="text-xs uppercase text-gray-400 font-black">Postulantes/Nuevos Seguidores</p>
+                            <h3 class="text-4xl font-black">${total.results.toLocaleString()}</h3>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
 
         const CreateView = () => `
-            <div class="min-h-screen font-sans" style="background-color: ${COLORS.gray}">
-                ${Navbar()}
-                <main class="max-w-[90rem] mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
-                    
-                    <!-- Formulario -->
-                    <div class="lg:col-span-2">
-                        <div class="bg-white rounded-[2rem] shadow-xl p-8 md:p-10 border-t-[10px]" style="border-color: ${COLORS.celeste}">
-                            <div class="mb-8 border-b pb-4">
-                                <h2 class="text-3xl font-black uppercase" style="color: ${COLORS.darkBlue}">
-                                    ${window.appState.editingReportId ? 'Modificar Análisis' : 'Ingreso de Estadísticas'}
-                                </h2>
-                                <p class="text-gray-500 text-sm font-semibold">Ingrese los datos de la publicación para generar el reporte de impacto.</p>
-                            </div>
-
-                            <form id="createForm" class="space-y-8">
-                                <!-- Info Post -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Título de Referencia</label><input type="text" id="rep_title" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none focus:ring-2 focus:ring-[#00AEEF] font-bold" placeholder="Ej: Post Cuenta Regresiva"></div>
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Descripción del Post</label><input type="text" id="rep_camp" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none focus:ring-2 focus:ring-[#00AEEF]" placeholder='Ej: "Preparate para vivir una..."'></div>
-                                </div>
-
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Fecha de Publicación</label><input type="date" id="rep_start" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none font-bold"></div>
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Alcance (Espectadores)</label><input type="number" id="rep_reach" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none font-black text-[${COLORS.celeste}]" placeholder="0"></div>
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Visualizaciones Totales</label><input type="number" id="rep_views" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none font-black text-gray-700" placeholder="0"></div>
-                                </div>
-
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Seguidores Netos</label><input type="number" id="rep_followers" required class="w-full p-4 rounded-xl bg-green-50 border border-green-100 outline-none font-black text-green-700" placeholder="0"></div>
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Reacciones</label><input type="number" id="rep_reactions" required class="w-full p-4 rounded-xl bg-blue-50 border border-blue-100 outline-none font-black text-blue-700" placeholder="0"></div>
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Comentarios</label><input type="number" id="rep_comments" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none font-black text-gray-700" placeholder="0"></div>
-                                    <div><label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Compartidos</label><input type="number" id="rep_shares" required class="w-full p-4 rounded-xl bg-gray-50 border outline-none font-black text-gray-700" placeholder="0"></div>
-                                </div>
-
-                                <!-- Textos -->
-                                <div class="space-y-4 pt-4 border-t border-gray-200">
-                                    <div>
-                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Análisis de Rendimiento</label>
-                                        <textarea id="rep_summary" required rows="6" class="w-full p-5 rounded-xl bg-gray-50 border outline-none focus:ring-2 focus:ring-[#00AEEF] whitespace-pre-wrap" placeholder="Explique cómo fue recibida la publicación por la audiencia..."></textarea>
-                                    </div>
-                                    <div>
-                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Conclusiones Estratégicas</label>
-                                        <textarea id="rep_conclusions" required rows="3" class="w-full p-5 rounded-xl bg-gray-50 border outline-none focus:ring-2 focus:ring-[#00AEEF] whitespace-pre-wrap" placeholder="¿Qué aprendimos de este post para el futuro?"></textarea>
-                                    </div>
-                                </div>
-
-                                <button type="submit" class="w-full py-5 rounded-xl text-white font-black uppercase tracking-widest shadow-xl hover:brightness-110 active:scale-95 transition-all text-lg" style="background-color: ${COLORS.celeste}">
-                                    <i class="fa-solid fa-floppy-disk mr-2"></i> ${window.appState.editingReportId ? 'Actualizar Análisis' : 'Guardar y Generar Presentación'}
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Asistente IA 21K -->
-                    <div class="lg:col-span-1 space-y-6">
-                        <div class="rounded-[2rem] shadow-2xl p-6 text-white relative overflow-hidden flex flex-col h-full min-h-[600px] sticky top-24" style="background-color: ${COLORS.darkBlue}">
-                            <div class="absolute top-0 right-0 p-8 opacity-10 rotate-12"><i class="fa-solid fa-robot text-[12rem]"></i></div>
-                            <div class="relative z-10 flex flex-col h-full">
-                                <div class="flex items-center gap-3 mb-6">
-                                    <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-white text-black"><i class="fa-solid fa-bolt text-lg" style="color: ${COLORS.amarillo}"></i></div>
-                                    <div>
-                                        <h3 class="font-black uppercase tracking-widest" style="color: ${COLORS.amarillo}">Asistente IA 21K</h3>
-                                    </div>
-                                </div>
-
-                                <div id="chatWindow" class="flex-grow bg-black/30 rounded-2xl p-4 overflow-y-auto space-y-4 mb-4 text-xs scrollbar-hide border border-white/10">
-                                    <div class="bg-white/10 p-3 rounded-xl rounded-tl-none max-w-[90%] font-semibold leading-relaxed">
-                                        ¡Hola! Sube tu captura de pantalla de "Estadísticas de la publicación" de Facebook. Extraeré las visualizaciones, alcance, interacciones y el análisis de edad/sexo automáticamente.
-                                    </div>
-                                    ${window.appState.aiChat.map(m => `
-                                        <div class="${m.role === 'user' ? 'ml-auto text-right rounded-tr-none text-black' : 'bg-white/10 text-left rounded-tl-none text-white'} p-3 rounded-xl max-w-[90%] font-medium leading-relaxed whitespace-pre-wrap" style="${m.role === 'user' ? `background-color: ${COLORS.celeste}` : ''}">
-                                            ${m.text}
-                                        </div>
-                                    `).join('')}
-                                    ${window.appState.aiLoading ? `<div class="animate-pulse font-black p-2 uppercase tracking-tighter" style="color: ${COLORS.amarillo}">Analizando captura...</div>` : ''}
-                                </div>
-
-                                <div class="space-y-3 relative z-10">
-                                    <label class="flex items-center justify-center gap-2 w-full py-3 bg-white/10 border border-dashed border-white/30 rounded-xl cursor-pointer hover:bg-white/20 transition-all text-xs font-bold uppercase tracking-widest active:scale-95">
-                                        <i class="fa-solid fa-image" style="color: ${COLORS.amarillo}"></i> Subir Captura de Facebook
-                                        <input type="file" id="aiImageInput" accept="image/*" class="hidden">
-                                    </label>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="chatInput" class="flex-grow bg-white/10 border border-white/20 rounded-xl px-4 py-2 outline-none text-xs focus:bg-white/20" placeholder="Indicaciones para el análisis...">
-                                        <button onclick="sendMessage()" class="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all text-white" style="background-color: ${COLORS.celeste}">
-                                            <i class="fa-solid fa-paper-plane"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
+            <div class="min-h-screen bg-slate-50 p-8">
+                <div class="max-w-4xl mx-auto bg-white p-10 rounded-[3rem] shadow-2xl">
+                    <h2 class="text-2xl font-black mb-8">Ingreso de Datos</h2>
+                    <form id="createForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input type="text" id="rep_title" placeholder="Título del Post" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="date" id="rep_date" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="number" id="rep_reach" placeholder="Alcance" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="number" id="rep_res" placeholder="Resultados/Seguidores" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="number" id="rep_react" placeholder="Reacciones" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="number" id="rep_comm" placeholder="Comentarios" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <input type="number" id="rep_share" placeholder="Compartidos" class="p-4 rounded-2xl bg-gray-50 outline-none">
+                        <button type="submit" class="col-span-full py-5 bg-[#0a192f] text-white font-black rounded-2xl">GUARDAR</button>
+                    </form>
+                </div>
             </div>
         `;
 
-        const ReportView = () => {
-            const r = window.appState.selectedReport;
-            if (!r) return `<div class="p-20 text-center">Error al cargar.</div>`;
-            const formatDate = (dateStr) => new Date(dateStr + "T12:00:00").toLocaleDateString('es-GT', { day: 'numeric', month: 'long', year: 'numeric' });
-            
-            return `
-                <div class="bg-[#f0f4f8] min-h-screen pb-20 font-sans">
-                    <!-- Progress bar -->
-                    <div id="report-progress" style="position:fixed; top:0; left:0; height:6px; background:linear-gradient(to right, ${COLORS.celeste}, ${COLORS.amarillo}); width:0%; z-index:100;"></div>
-                    
-                    ${Navbar()}
-
-                    <main class="max-w-6xl mx-auto px-4 py-10 space-y-16 animate-fade-in">
-                        
-                        <!-- Header del Reporte -->
-                        <div class="text-center space-y-4">
-                            <span class="px-4 py-1 rounded-full text-xs font-black tracking-widest uppercase text-white shadow-md" style="background-color: ${COLORS.amarillo}">Análisis de Impacto</span>
-                            <h2 class="text-4xl md:text-6xl font-black tracking-tighter uppercase" style="color: ${COLORS.darkBlue}">${r.reportTitle}</h2>
-                            <p class="text-xl text-gray-500 font-medium">Publicación: <span class="italic font-bold" style="color: ${COLORS.celeste}">${r.campaignName}</span></p>
-                        </div>
-
-                        <!-- 1. KPIs Principales (Diseño 21K) -->
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div class="md:col-span-2 bg-white rounded-3xl p-8 shadow-xl border-t-[8px] relative overflow-hidden" style="border-color: ${COLORS.celeste}">
-                                <div class="absolute -right-4 -bottom-4 opacity-5"><i class="fa-solid fa-eye text-9xl"></i></div>
-                                <p class="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">Impacto Global</p>
-                                <h3 class="text-5xl font-black tracking-tighter mb-4" style="color: ${COLORS.darkBlue}">${r.views.toLocaleString()}</h3>
-                                <p class="text-sm font-semibold text-gray-500">Visualizaciones totales obtenidas por la publicación.</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-3xl p-8 shadow-xl border-t-[8px]" style="border-color: ${COLORS.amarillo}">
-                                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 bg-yellow-50" style="color: ${COLORS.amarillo}"><i class="fa-solid fa-users"></i></div>
-                                <p class="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Alcance Único</p>
-                                <h3 class="text-3xl font-black" style="color: ${COLORS.darkBlue}">${r.reach.toLocaleString()}</h3>
-                            </div>
-
-                            <div class="bg-white rounded-3xl p-8 shadow-xl border-t-[8px] bg-green-50" style="border-color: #10b981">
-                                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 bg-white text-green-500 shadow-sm"><i class="fa-solid fa-user-plus"></i></div>
-                                <p class="text-[10px] text-green-600 font-black uppercase tracking-widest mb-1">Nuevos Seguidores</p>
-                                <h3 class="text-3xl font-black text-green-700">+${r.followers.toLocaleString()}</h3>
-                            </div>
-                        </div>
-
-                        <!-- 2. Detalle de Interacciones -->
-                        <section class="bg-white rounded-[2.5rem] shadow-xl p-8 md:p-12 border border-gray-100 relative">
-                            <h3 class="text-2xl font-black uppercase mb-8 flex items-center gap-3" style="color: ${COLORS.darkBlue}">
-                                <i class="fa-solid fa-hand-pointer text-[${COLORS.celeste}]" style="color: ${COLORS.celeste}"></i> Análisis de Interacción
-                            </h3>
-                            
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div class="text-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                                    <p class="text-4xl font-black mb-2" style="color: ${COLORS.darkBlue}">${(r.reactions + r.comments + r.shares).toLocaleString()}</p>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Interacciones</p>
-                                </div>
-                                <div class="text-center p-6 bg-blue-50/50 rounded-2xl border border-blue-50">
-                                    <i class="fa-solid fa-thumbs-up text-blue-500 text-2xl mb-2"></i>
-                                    <p class="text-2xl font-black text-blue-900">${r.reactions.toLocaleString()}</p>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Reacciones</p>
-                                </div>
-                                <div class="text-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                                    <i class="fa-solid fa-comment text-gray-400 text-2xl mb-2"></i>
-                                    <p class="text-2xl font-black text-gray-700">${r.comments.toLocaleString()}</p>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Comentarios</p>
-                                </div>
-                                <div class="text-center p-6 bg-yellow-50/50 rounded-2xl border border-yellow-50">
-                                    <i class="fa-solid fa-share text-[${COLORS.amarillo}] text-2xl mb-2" style="color: ${COLORS.amarillo}"></i>
-                                    <p class="text-2xl font-black text-yellow-800">${r.shares.toLocaleString()}</p>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-yellow-600">Compartidos</p>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- 3. Análisis Cualitativo -->
-                        <div class="grid md:grid-cols-2 gap-8">
-                            <div class="bg-[${COLORS.darkBlue}] text-white rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden" style="background-color: ${COLORS.darkBlue}">
-                                <div class="absolute top-0 right-0 p-6 opacity-10"><i class="fa-solid fa-chart-pie text-9xl"></i></div>
-                                <h3 class="text-2xl font-black uppercase mb-6 tracking-widest" style="color: ${COLORS.celeste}">Resumen de Rendimiento</h3>
-                                <div class="text-gray-200 text-lg leading-relaxed whitespace-pre-wrap font-light relative z-10">${r.executiveSummary}</div>
-                                <div class="mt-8 pt-6 border-t border-white/10 flex items-center gap-4">
-                                    <div class="bg-white p-2 rounded-lg h-10 w-10 flex items-center justify-center"><img src="logo 21k vii.png" class="object-contain"></div>
-                                    <p class="text-xs font-black uppercase tracking-widest opacity-50">Publicado: ${formatDate(r.startDate)}</p>
-                                </div>
-                            </div>
-
-                            <div class="bg-white rounded-[2.5rem] p-10 shadow-xl border-l-[12px]" style="border-left-color: ${COLORS.amarillo}">
-                                <div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl mb-6 bg-yellow-50" style="color: ${COLORS.amarillo}"><i class="fa-solid fa-lightbulb"></i></div>
-                                <h3 class="text-2xl font-black uppercase mb-4" style="color: ${COLORS.darkBlue}">Conclusión y Estrategia</h3>
-                                <p class="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">${r.conclusions}</p>
-                            </div>
-                        </div>
-
-                        <!-- Botón de Celebración (Final) -->
-                        <div class="text-center pt-8 pb-12 no-print">
-                            <button onclick="celebrate()" class="px-8 py-4 rounded-full text-white font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-transform" style="background-color: ${COLORS.celeste}">
-                                <i class="fa-solid fa-check-circle mr-2"></i> Marcar como Revisado
-                            </button>
-                        </div>
-                    </main>
-                </div>
-            `;
-        };
-
-        // --- NUEVA VISTA: COMPARATIVA ---
-        const CompareView = () => {
-            const reps = window.appState.reports;
-            const totalViews = reps.reduce((sum, r) => sum + (Number(r.views)||0), 0);
-            const totalReach = reps.reduce((sum, r) => sum + (Number(r.reach)||0), 0);
-            const totalFollowers = reps.reduce((sum, r) => sum + (Number(r.followers)||0), 0);
-            const totalInteractions = reps.reduce((sum, r) => sum + (Number(r.reactions)||0) + (Number(r.comments)||0) + (Number(r.shares)||0), 0);
-
-            return `
-                <div class="min-h-screen bg-[#f0f4f8] font-sans">
-                    ${Navbar()}
-                    <main class="max-w-7xl mx-auto p-6 md:p-10 space-y-10 animate-fade-in">
-                        <div class="text-center mb-10">
-                            <h2 class="text-4xl md:text-5xl font-black uppercase tracking-tight" style="color: ${COLORS.darkBlue}">Análisis Global 21K</h2>
-                            <p class="text-gray-500 font-semibold mt-2">Acumulado de las ${reps.length} publicaciones analizadas.</p>
-                        </div>
-
-                        <!-- Tarjetas de Sumatoria -->
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                            <div class="bg-white p-6 rounded-3xl shadow-lg border-b-4 text-center" style="border-color: ${COLORS.celeste}">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Visualizaciones</p>
-                                <h3 class="text-3xl font-black" style="color: ${COLORS.darkBlue}">${totalViews.toLocaleString()}</h3>
-                            </div>
-                            <div class="bg-white p-6 rounded-3xl shadow-lg border-b-4 text-center" style="border-color: ${COLORS.amarillo}">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Alcance Único</p>
-                                <h3 class="text-3xl font-black" style="color: ${COLORS.darkBlue}">${totalReach.toLocaleString()}</h3>
-                            </div>
-                            <div class="bg-white p-6 rounded-3xl shadow-lg border-b-4 text-center border-green-500">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Seguidores Netos</p>
-                                <h3 class="text-3xl font-black text-green-600">+${totalFollowers.toLocaleString()}</h3>
-                            </div>
-                            <div class="bg-white p-6 rounded-3xl shadow-lg border-b-4 text-center border-purple-500">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Interacciones Totales</p>
-                                <h3 class="text-3xl font-black text-purple-600">${totalInteractions.toLocaleString()}</h3>
-                            </div>
-                        </div>
-
-                        <!-- Tabla Comparativa -->
-                        <div class="bg-white rounded-3xl shadow-xl overflow-hidden mt-8">
-                            <div class="p-6 text-white" style="background-color: ${COLORS.darkBlue}">
-                                <h3 class="font-black uppercase tracking-widest text-sm">Detalle por Publicación</h3>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr class="bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                            <th class="p-4">Fecha</th>
-                                            <th class="p-4">Publicación</th>
-                                            <th class="p-4 text-right">Alcance</th>
-                                            <th class="p-4 text-right">Vistas</th>
-                                            <th class="p-4 text-right">Interacc.</th>
-                                            <th class="p-4 text-center">Seguidores</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="text-sm">
-                                        ${reps.map(r => {
-                                            const ints = (Number(r.reactions)||0) + (Number(r.comments)||0) + (Number(r.shares)||0);
-                                            return `
-                                            <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                                                <td class="p-4 font-bold text-gray-500">${new Date(r.startDate + "T12:00:00").toLocaleDateString('es-GT', {day:'numeric', month:'short'})}</td>
-                                                <td class="p-4 font-black" style="color: ${COLORS.darkBlue}">${r.reportTitle}</td>
-                                                <td class="p-4 text-right font-bold text-gray-600">${Number(r.reach).toLocaleString()}</td>
-                                                <td class="p-4 text-right font-bold text-gray-600">${Number(r.views).toLocaleString()}</td>
-                                                <td class="p-4 text-right font-bold text-purple-600">${ints.toLocaleString()}</td>
-                                                <td class="p-4 text-center font-black text-green-600">+${r.followers}</td>
-                                            </tr>
-                                        `}).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            `;
-        }
-
-        // --- IA GEMINI 21K ---
-        const callGemini = async (prompt, base64Image = null) => {
-            let delay = 1000;
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const contents = [{ parts: [{ text: prompt }] }];
-                    if (base64Image) contents[0].parts.push({ inlineData: { mimeType: "image/png", data: base64Image } });
-                    
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents,
-                            systemInstruction: { parts: [{ text: "Eres el analista de marketing y redes sociales de la carrera 'Esquipulas 21K' (VIII Edición). Tu objetivo es analizar capturas de pantalla de estadísticas de Facebook (alcance, interacciones, demografía). Extrae todos los números posibles. Redacta el resumen y las conclusiones de manera profesional, motivadora y en tercera persona. Utiliza listas con guiones (-) si enumeras puntos. Devuelve el resultado en formato JSON." }] }
-                        })
-                    });
-
-                    if (!response.ok) throw new Error("API error");
-                    const result = await response.json();
-                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (err) { if (i === 4) throw err; await new Promise(r => setTimeout(r, delay)); delay *= 2; }
-            }
-        };
-
-        window.sendMessage = async () => {
-            const input = document.getElementById('chatInput');
-            const text = input.value.trim();
-            if (!text && !window.appState.lastAnalyzedImage) return;
-
-            window.appState.aiChat.push({ role: 'user', text: text || "Analizando métricas de la captura..." });
-            window.appState.aiLoading = true;
-            render();
-
-            try {
-                const prompt = `Analiza esta captura de Facebook de la página Esquipulas 21k. Extrae los datos y genera un análisis de rendimiento. 
-                Recuerda que 'Espectadores' es el Alcance y 'Visualizaciones' es el total. Extrae las reacciones, comentarios, compartidos y nuevos seguidores.
-                IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido con esta estructura:
-                { "reportTitle": "Título corto", "campaignName": "Descripción del post", "startDate": "YYYY-MM-DD", "reach": 0, "views": 0, "followers": 0, "reactions": 0, "comments": 0, "shares": 0, "executiveSummary": "Resumen del impacto y demografía (usa \\n\\n para saltos de línea)", "conclusions": "Recomendaciones estratégicas (usa \\n\\n)" }
-                Instrucciones adicionales del usuario: ${text}`;
-                
-                const response = await callGemini(prompt, window.appState.lastAnalyzedImage);
-                const jsonMatch = response.match(/\{[\s\S]*\}/);
-                
-                if (jsonMatch) {
-                    const data = JSON.parse(jsonMatch[0]);
-                    if(document.getElementById('rep_title')) document.getElementById('rep_title').value = data.reportTitle || '';
-                    if(document.getElementById('rep_camp')) document.getElementById('rep_camp').value = data.campaignName || '';
-                    if(document.getElementById('rep_start')) document.getElementById('rep_start').value = data.startDate || new Date().toISOString().split('T')[0];
-                    if(document.getElementById('rep_reach')) document.getElementById('rep_reach').value = data.reach || 0;
-                    if(document.getElementById('rep_views')) document.getElementById('rep_views').value = data.views || 0;
-                    if(document.getElementById('rep_followers')) document.getElementById('rep_followers').value = data.followers || 0;
-                    if(document.getElementById('rep_reactions')) document.getElementById('rep_reactions').value = data.reactions || 0;
-                    if(document.getElementById('rep_comments')) document.getElementById('rep_comments').value = data.comments || 0;
-                    if(document.getElementById('rep_shares')) document.getElementById('rep_shares').value = data.shares || 0;
-                    if(document.getElementById('rep_summary')) document.getElementById('rep_summary').value = data.executiveSummary || '';
-                    if(document.getElementById('rep_conclusions')) document.getElementById('rep_conclusions').value = data.conclusions || '';
-                }
-                window.appState.aiChat.push({ role: 'assistant', text: "¡Análisis de la 21K completado! Los datos y la redacción se han cargado en el formulario." });
-            } catch (err) { window.appState.aiChat.push({ role: 'assistant', text: "Hubo un error analizando la imagen. Intenta de nuevo." }); }
-            finally {
-                window.appState.aiLoading = false;
-                window.appState.lastAnalyzedImage = null;
-                input.value = ""; render();
-                const win = document.getElementById('chatWindow');
-                if(win) win.scrollTop = win.scrollHeight;
-            }
-        };
-
-        // --- EVENTOS GLOBALES ---
-        const setupEventListeners = () => {
-            const createForm = document.getElementById('createForm');
-            if (createForm) {
-                createForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    let existingData = {};
-                    if (window.appState.editingReportId) {
-                        const existingReport = window.appState.reports.find(r => r.id === window.appState.editingReportId);
-                        if (existingReport) existingData = existingReport;
-                    }
-
-                    const newReport = {
-                        ...existingData,
-                        id: window.appState.editingReportId || ('post-' + Date.now()),
-                        reportTitle: document.getElementById('rep_title').value,
-                        campaignName: document.getElementById('rep_camp').value,
-                        startDate: document.getElementById('rep_start').value,
-                        reach: Number(document.getElementById('rep_reach').value),
-                        views: Number(document.getElementById('rep_views').value),
-                        followers: Number(document.getElementById('rep_followers').value),
-                        reactions: Number(document.getElementById('rep_reactions').value),
-                        comments: Number(document.getElementById('rep_comments').value),
-                        shares: Number(document.getElementById('rep_shares').value),
-                        executiveSummary: document.getElementById('rep_summary').value,
-                        conclusions: document.getElementById('rep_conclusions').value,
-                        createdAt: existingData.createdAt || new Date().toISOString()
-                    };
-                    
-                    if (isFirebaseEnabled && auth.currentUser) {
-                        try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'reports', newReport.id), newReport); } catch (err) {}
-                    } else {
-                        if (window.appState.editingReportId) {
-                            const idx = window.appState.reports.findIndex(r => r.id === window.appState.editingReportId);
-                            window.appState.reports[idx] = newReport;
-                        } else window.appState.reports.unshift(newReport);
-                    }
-                    window.appState.editingReportId = null; window.appState.currentView = 'list'; render();
-                });
-            }
-
-            const aiInput = document.getElementById('aiImageInput');
-            if (aiInput) {
-                aiInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0]; if (!file) return;
-                    const reader = new FileReader(); reader.onload = (re) => { window.appState.lastAnalyzedImage = re.target.result.split(',')[1]; sendMessage(); };
-                    reader.readAsDataURL(file);
-                });
-            }
-
-            if (window.appState.currentView === 'view') {
-                window.onscroll = () => {
-                    const winScroll = document.documentElement.scrollTop;
-                    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                    const pb = document.getElementById("report-progress");
-                    if(pb) pb.style.width = ((winScroll / height) * 100) + "%";
+        function setupEventListeners() {
+            document.getElementById('createForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    title: document.getElementById('rep_title').value,
+                    date: document.getElementById('rep_date').value,
+                    reach: Number(document.getElementById('rep_reach').value),
+                    results: Number(document.getElementById('rep_res').value),
+                    interactions: Number(document.getElementById('rep_react').value) + Number(document.getElementById('rep_comm').value) + Number(document.getElementById('rep_share').value),
+                    createdAt: new Date().toISOString()
                 };
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'reports'), data);
+                window.appState.currentView = 'list';
+                render();
+            });
+        }
+        
+        window.changeView = (v) => { window.appState.currentView = v; render(); };
+        window.deleteReport = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'reports', id)); };
+        
+        // --- INICIALIZACIÓN ---
+        onAuthStateChanged(auth, async (u) => {
+            if (u) {
+                onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'reports')), (snap) => {
+                    window.appState.reports = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
+                });
+            } else {
+                await signInAnonymously(auth);
             }
-        };
-
-        window.changeView = (v) => { window.appState.editingReportId = null; window.appState.currentView = v; render(); window.scrollTo(0,0); };
-        window.openReport = (id) => { window.appState.selectedReport = window.appState.reports.find(r => r.id === id); window.appState.currentView = 'view'; render(); window.scrollTo(0,0); };
-        window.editReport = (e, id) => { e.stopPropagation(); window.appState.editingReportId = id; window.appState.currentView = 'create'; render(); window.scrollTo(0,0); };
-        window.deleteReport = async (e, id) => { e.stopPropagation(); if(confirm("¿Eliminar reporte?")) { if (isFirebaseEnabled && auth.currentUser) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'reports', id)); else { window.appState.reports = window.appState.reports.filter(r => r.id !== id); render(); } } };
-        window.celebrate = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: [COLORS.amarillo, COLORS.celeste, '#ffffff'] });
-
-        const init = async () => {
-            render(); // Carga la lista inicial sin login para 21K por simplicidad (puedes agregar auth después)
-        };
-        init();
+        });
+        render();
     </script>
-    <style>
-        * { font-family: 'Montserrat', sans-serif; }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .whitespace-pre-wrap { white-space: pre-wrap; }
-        @media print { .no-print { display: none !important; } nav { display: none !important; } }
-    </style>
 </head>
 <body><div id="root"></div></body>
 </html>
